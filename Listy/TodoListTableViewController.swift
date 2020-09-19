@@ -10,14 +10,37 @@ import UIKit
 
 class TodoListTableViewController: UITableViewController {
     
-    let itemArray = ["Find Mike", "Buy Milk", "Destroy Demogorgon"]
-
+    
+    // MARK: Variables And Outlets
+    
+    var itemArray       = ["Find Mike", "Buy Milk", "Destroy Demogorgon"]
+    var defaults        = UserDefaults.standard
+    let arrayDefaultsID = "ListyItemsArray"
+    
+    
+    // MARK: ViewController Life Cycle
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+        setupData()
     }
 
 }
+
+
+// MARK: Private Methods
+
+extension TodoListTableViewController {
+    private func setupData() {
+        if let items = defaults.value(forKey: self.arrayDefaultsID) as? [String] {
+            self.itemArray = items
+            self.tableView.reloadData()
+        }
+    }
+}
+
+
+// MARK: Table View
 
 extension TodoListTableViewController {
     
@@ -70,6 +93,9 @@ extension TodoListTableViewController {
         let alert = UIAlertController(title: "Add a new Listy Item", message: "", preferredStyle: .alert)
         let action = UIAlertAction(title: "Add Item", style: .default) { (action) in
             print(textFieldLocal.text!)
+            self.itemArray.append(textFieldLocal.text!)
+            self.defaults.setValue(self.itemArray, forKey: self.arrayDefaultsID)
+            self.tableView.reloadData()
         }
         
         alert.addTextField { (alertTextField) in
