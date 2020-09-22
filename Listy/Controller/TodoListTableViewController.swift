@@ -13,15 +13,16 @@ class TodoListTableViewController: UITableViewController {
     
     // MARK: Variables And Outlets
     
-    var itemArray       = ["Find Mike", "Buy Milk", "Destroy Demogorgon"]
-    var defaults        = UserDefaults.standard
-    let arrayDefaultsID = "ListyItemsArray"
+    var itemArray               = [Item]()
+    static let arrayDefaultsID  = "ListyItemsArray.plist"
+    let dataFilePath            = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent(arrayDefaultsID)
     
     
     // MARK: ViewController Life Cycle
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        print(dataFilePath!)
         setupData()
     }
 
@@ -32,9 +33,27 @@ class TodoListTableViewController: UITableViewController {
 
 extension TodoListTableViewController {
     private func setupData() {
-        if let items = defaults.value(forKey: self.arrayDefaultsID) as? [String] {
-            self.itemArray = items
-            self.tableView.reloadData()
+        if let data = try? Data(contentsOf: dataFilePath!) {
+            do {
+                let decoder = PropertyListDecoder()
+                self.itemArray   = try decoder.decode([Item].self, from: data)
+            }
+            catch {
+                print("Erorr while getting data, \(error)")
+            }
+            
+        }
+        
+    }
+    
+    private func saveData() {
+        let encoder = PropertyListEncoder()
+        do {
+            let data = try encoder.encode(itemArray)
+            try data.write(to: dataFilePath!)
+        }
+        catch {
+            print("Error encoding item array: \(error)")
         }
     }
 }
@@ -57,7 +76,8 @@ extension TodoListTableViewController {
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "todoItemCell", for: indexPath)
-        cell.textLabel?.text = itemArray[indexPath.item]
+        cell.textLabel?.text    = itemArray[indexPath.item].title
+        cell.accessoryType      = itemArray[indexPath.item].isDone ? .checkmark : .none
         
         return cell
     }
@@ -66,18 +86,10 @@ extension TodoListTableViewController {
     // MARK: Table view delegate
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-//        print(itemArray[indexPath.row])
-        
-        let cell = tableView.cellForRow(at: indexPath)
-        
-        if cell?.accessoryType == .checkmark {
-            cell?.accessoryType = .none
-        }
-        else {
-            cell?.accessoryType = .checkmark
-        }
-        
+        itemArray[indexPath.item].isDone = !itemArray[indexPath.item].isDone
+        self.saveData()
         tableView.deselectRow(at: indexPath, animated: true)
+        tableView.reloadData()
     }
 }
 
@@ -93,8 +105,11 @@ extension TodoListTableViewController {
         let alert = UIAlertController(title: "Add a new Listy Item", message: "", preferredStyle: .alert)
         let action = UIAlertAction(title: "Add Item", style: .default) { (action) in
             print(textFieldLocal.text!)
-            self.itemArray.append(textFieldLocal.text!)
-            self.defaults.setValue(self.itemArray, forKey: self.arrayDefaultsID)
+            let newItem = Item()
+            newItem.title = textFieldLocal.text!
+            self.itemArray.append(newItem)
+            self.saveData()
+            
             self.tableView.reloadData()
         }
         
