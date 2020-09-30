@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import CoreData
 
 class TodoListTableViewController: UITableViewController {
     
@@ -16,6 +17,7 @@ class TodoListTableViewController: UITableViewController {
     var itemArray               = [Item]()
     static let arrayDefaultsID  = "ListyItemsArray.plist"
     let dataFilePath            = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent(arrayDefaultsID)
+    let context                 = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     
     
     // MARK: ViewController Life Cycle
@@ -23,7 +25,7 @@ class TodoListTableViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         print(dataFilePath!)
-        setupData()
+        loadItems()
     }
 
 }
@@ -32,28 +34,23 @@ class TodoListTableViewController: UITableViewController {
 // MARK: Private Methods
 
 extension TodoListTableViewController {
-    private func setupData() {
-        if let data = try? Data(contentsOf: dataFilePath!) {
-            do {
-                let decoder = PropertyListDecoder()
-                self.itemArray   = try decoder.decode([Item].self, from: data)
-            }
-            catch {
-                print("Erorr while getting data, \(error)")
-            }
-            
+   
+    private func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest()) {
+        do {
+            itemArray = try context.fetch(request)
         }
-        
+        catch {
+            print("Error while fetching Request")
+        }
+        tableView.reloadData()
     }
     
     private func saveData() {
-        let encoder = PropertyListEncoder()
         do {
-            let data = try encoder.encode(itemArray)
-            try data.write(to: dataFilePath!)
+            try context.save()
         }
         catch {
-            print("Error encoding item array: \(error)")
+            print("Error saving context \(error)")
         }
     }
 }
@@ -105,8 +102,10 @@ extension TodoListTableViewController {
         let alert = UIAlertController(title: "Add a new Listy Item", message: "", preferredStyle: .alert)
         let action = UIAlertAction(title: "Add Item", style: .default) { (action) in
             print(textFieldLocal.text!)
-            let newItem = Item()
-            newItem.title = textFieldLocal.text!
+            let newItem     = Item(context: self.context)
+            newItem.title   = textFieldLocal.text!
+            newItem.isDone  = false
+            
             self.itemArray.append(newItem)
             self.saveData()
             
@@ -116,11 +115,34 @@ extension TodoListTableViewController {
         alert.addTextField { (alertTextField) in
             alertTextField.placeholder = "Add a new note!"
             textFieldLocal = alertTextField
-            print("Now")
         }
         
         alert.addAction(action)
         
         present(alert, animated: true, completion: nil)
     }
+}
+
+
+// MARK: Search Bar Delegate
+
+extension TodoListTableViewController: UISearchBarDelegate {
+    
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        let request: NSFetchRequest<Item> = Item.fetchRequest()
+        request.predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+        request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
+        
+        loadItems(with: request)
+    }
+    
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        if searchBar.text?.count == 0 {
+            loadItems()
+            DispatchQueue.main.async {
+                searchBar.resignFirstResponder()
+            }
+        }
+    }
+    
 }
